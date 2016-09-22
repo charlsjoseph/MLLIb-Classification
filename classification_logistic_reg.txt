@@ -1,0 +1,64 @@
+
+DataSet :  http://archive.ics.uci.edu/ml/datasets/Adult 
+
+Spark MLIB classification Model
+Scala Program
+============
+
+import org.apache.spark.mllib.regression
+import org.apache.spark.mllib.classification.LogisticRegressionWithLBFGS
+
+def createMap(data: RDD[String]) : Map[String,Double] = {  
+ var mapData:Map[String,Double] = Map()
+ var counter = 0.0
+ data.collect().foreach{ item => 
+  counter = counter +1
+  mapData += (item -> counter)
+ }
+ mapData
+}
+
+def getLablelValue(input: String): Int = input match {
+ case "<=50K" => 0
+ case ">50K" => 1
+}
+
+
+val census = sc.textFile("/user/cloudera/census_data.txt")
+val orgTypeRdd  = census.map(line => line.split(", ")(1)).distinct
+val gradeTypeRdd = census.map(line => line.split(", ")(3)).distinct
+val marStatusRdd = census.map(line => line.split(", ")(5)).distinct
+val jobTypeRdd = census.map(line => line.split(", ")(6)).distinct
+val familyStatusRdd = census.map(line => line.split(", ")(7)).distinct
+val raceTypeRdd = census.map(line => line.split(", ")(8)).distinct
+val genderTypeRdd = census.map(line => line.split(", ")(9)).distinct
+val countryRdd = census.map(line => line.split(", ")(13)).distinct
+val salaryRange = census.map(line => line.split(", ")(14)).distinct
+
+val orgTypeMap = createMap(orgTypeRdd)
+val gradeTypeMap = createMap(gradeTypeRdd)
+val marStatusMap = createMap(marStatusRdd)
+val jobTypeMap = createMap(jobTypeRdd)
+val familyStatusMap = createMap(familyStatusRdd)
+val raceTypeMap = createMap(raceTypeRdd)
+val genderTypeMap = createMap(genderTypeRdd)
+val countryMap = createMap(countryRdd)
+val salaryRangeMap = createMap(salaryRange)
+
+
+val featureVector = census.map{line => 
+  val fields = line.split(", ")
+ LabeledPoint(getLablelValue(fields(14).toString) , Vectors.dense(fields(0).toDouble,  orgTypeMap(fields(1).toString) , fields(2).toDouble , gradeTypeMap(fields(3).toString) , fields(4).toDouble , marStatusMap(fields(5).toString), jobTypeMap(fields(6).toString), familyStatusMap(fields(7).toString),raceTypeMap(fields(8).toString),genderTypeMap (fields(9).toString), fields(10).toDouble , fields(11).toDouble , fields(12).toDouble,countryMap(fields(13).toString) , salaryRangeMap(fields(14).toString)))
+}
+
+val model = new LogisticRegressionWithLBFGS().setNumClasses(2)
+val trained = model.run(featureVector)
+val census_test = sc.textFile("/user/cloudera/census_test_data.txt")
+
+val testFeature = census_test.map{line => 
+  val fields = line.split(", ")
+  val feature = Vectors.dense(fields(0).toDouble,  orgTypeMap(fields(1).toString) , fields(2).toDouble , gradeTypeMap(fields(3).toString) , fields(4).toDouble , marStatusMap(fields(5).toString), jobTypeMap(fields(6).toString), familyStatusMap(fields(7).toString),raceTypeMap(fields(8).toString),genderTypeMap (fields(9).toString), fields(10).toDouble , fields(11).toDouble , fields(12).toDouble,countryMap(fields(13).toString) , salaryRangeMap(fields(14).toString))
+ (line, trained.predict(feature));
+}
+testFeature.collect().foreach(println);
+
